@@ -1,6 +1,6 @@
 
-LLAMA_VERSION?=ccbc84a5374bab7a01f68b129411772ddd8e7c79
-LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
+LLAMA_VERSION?=dev
+LLAMA_REPO?=https://github.com/ericblade/llama.cpp
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
