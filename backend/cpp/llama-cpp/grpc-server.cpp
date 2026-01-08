@@ -18,7 +18,10 @@
 #include "backend.grpc.pb.h"
 #include "common.h"
 #include <getopt.h>
+// Only include reflection support if not disabled (can fail on some Windows builds)
+#if !defined(_WIN32) || defined(GRPC_ENABLE_REFLECTION)
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
+#endif
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include <regex>
@@ -394,6 +397,12 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     params.fit_params_target = 1024 * 1024 * 1024;
     // fit_params_min_ctx: minimum context size for fit (default: 4096)
     params.fit_params_min_ctx = 4096;
+
+    // Allocate tensor_buft_overrides buffer for llama_params_fit and terminate with {nullptr, nullptr}
+    params.tensor_buft_overrides.resize(llama_max_tensor_buft_overrides());
+    for (auto & o : params.tensor_buft_overrides) {
+        o = { nullptr, nullptr };
+    }
 
     // Initialize additional server options (can be overridden by options)
     // n_cache_reuse: min chunk size for KV cache reuse via shifting (default: 0 = disabled)
