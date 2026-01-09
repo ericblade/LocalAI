@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +18,16 @@ import (
 )
 
 var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
+
+// findBashOnWindows locates a bash shell on Windows via PATH.
+// Returns the resolved path to "bash" or "bash" if not found.
+func findBashOnWindows() string {
+	if p, err := exec.LookPath("bash"); err == nil {
+		return p
+	}
+	// Fallback when PATH lookup fails
+	return "bash"
+}
 
 func (ml *ModelLoader) deleteProcess(s string) error {
 	model, ok := ml.models[s]
@@ -91,13 +103,14 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 }
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
-	// Make sure the process is executable
-	// Check first if it has executable permissions
-	if fi, err := os.Stat(grpcProcess); err == nil {
-		if fi.Mode()&0111 == 0 {
-			xlog.Debug("Process is not executable. Making it executable.", "process", grpcProcess)
-			if err := os.Chmod(grpcProcess, 0700); err != nil {
-				return nil, err
+	// Make sure the process is executable (POSIX only)
+	if runtime.GOOS != "windows" {
+		if fi, err := os.Stat(grpcProcess); err == nil {
+			if fi.Mode()&0111 == 0 {
+				xlog.Debug("Process is not executable. Making it executable.", "process", grpcProcess)
+				if err := os.Chmod(grpcProcess, 0700); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -111,13 +124,50 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// If this is a shell script on Windows, wrap it with a shell
+	processName := filepath.Base(grpcProcess)
+	processArgs := append([]string{}, args...)
+	bindAddr := serverAddress
+	if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(grpcProcess), ".sh") {
+		processName = findBashOnWindows()
+		raw := strings.ReplaceAll(grpcProcess, "\\", "/")
+		var converted string
+		shellKind := "bash"
+		lowerName := strings.ToLower(processName)
+		// Detect legacy WSL shim bash.exe in System32
+		if strings.Contains(lowerName, "\\system32\\bash.exe") || strings.HasSuffix(lowerName, "system32/bash.exe") {
+			shellKind = "wsl-bash"
+			if len(raw) >= 2 && raw[1] == ':' {
+				converted = "/mnt/" + strings.ToLower(string(raw[0])) + raw[2:]
+			} else {
+				converted = raw
+			}
+			// bash.exe (WSL shim) directly executes the script
+			processArgs = append([]string{converted}, args...)
+			// For WSL, bind to all interfaces to ensure Windows can dial
+			bindAddr = strings.Replace(bindAddr, "127.0.0.1", "0.0.0.0", 1)
+		} else {
+			// Git Bash/MSYS path style: /<drive>/...
+			if len(raw) >= 2 && raw[1] == ':' {
+				converted = "/" + strings.ToLower(string(raw[0])) + raw[2:]
+			} else {
+				converted = raw
+			}
+			// bash.exe (Git/MSYS) directly executes the script
+			processArgs = append([]string{converted}, args...)
+		}
+		xlog.Debug("Windows shell script launch", "shellKind", shellKind, "shellPath", processName, "scriptPath", grpcProcess, "convertedPath", converted, "bindAddr", bindAddr, "processArgs", processArgs)
+	}
+
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(append(processArgs, []string{"--addr", bindAddr}...)...),
 		process.WithEnvironment(os.Environ()...),
 		process.WithWorkDir(workDir),
 	)
+
+	xlog.Debug("Process configuration", "name", processName, "workDir", workDir, "finalArgs", append(processArgs, []string{"--addr", bindAddr}...))
 
 	if ml.wd != nil {
 		ml.wd.Add(serverAddress, grpcControlProcess)
