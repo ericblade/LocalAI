@@ -1,12 +1,14 @@
 package oci
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -24,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/mudler/LocalAI/pkg/xio"
+	"github.com/mudler/xlog"
 )
 
 // ref: https://github.com/mudler/luet/blob/master/pkg/helpers/docker/docker.go#L117
@@ -309,6 +312,11 @@ func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tar
 
 // ExtractOCIImageFromTar extracts an image from a previously downloaded tar file
 func ExtractOCIImageFromTar(ctx context.Context, tarFilePath, imageRef, targetDestination string, downloadStatus func(string, string, string, float64)) error {
+	// On Windows, skip symlink creation during Apply and materialize them afterward
+	if runtime.GOOS == "windows" {
+		return extractWithSymlinkMaterializationWindows(ctx, tarFilePath, imageRef, targetDestination, downloadStatus)
+	}
+
 	// Open the tar file
 	tarFile, err := os.Open(tarFilePath)
 	if err != nil {
@@ -322,7 +330,7 @@ func ExtractOCIImageFromTar(ctx context.Context, tarFilePath, imageRef, targetDe
 		return fmt.Errorf("failed to get file info: %v", err)
 	}
 
-	var reader io.Reader = tarFile
+	reader := io.Reader(tarFile)
 	if downloadStatus != nil {
 		reader = io.TeeReader(tarFile, &progressWriter{
 			total:          fileInfo.Size(),
@@ -336,7 +344,124 @@ func ExtractOCIImageFromTar(ctx context.Context, tarFilePath, imageRef, targetDe
 		targetDestination, reader,
 		archive.WithNoSameOwner())
 
+	if err != nil {
+		xlog.Error("archive.Apply failed", "targetDestination", targetDestination, "imageRef", imageRef, "error", err.Error())
+		// Clean up incomplete extraction so mirror can retry from scratch
+		if rmErr := os.RemoveAll(targetDestination); rmErr != nil {
+			xlog.Error("failed to cleanup incomplete extraction", "targetDestination", targetDestination, "error", rmErr.Error())
+		}
+	}
+
 	return err
+}
+
+// extractWithSymlinkMaterializationWindows uses archive.Apply with a filter to skip symlinks, then materializes them as real files/dirs.
+func extractWithSymlinkMaterializationWindows(ctx context.Context, tarFilePath, imageRef, targetDestination string, downloadStatus func(string, string, string, float64)) error {
+	tarFile, err := os.Open(tarFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open tar file: %v", err)
+	}
+	defer tarFile.Close()
+
+	fileInfo, err := tarFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %v", err)
+	}
+
+	reader := io.Reader(tarFile)
+	if downloadStatus != nil {
+		reader = io.TeeReader(tarFile, &progressWriter{
+			total:          fileInfo.Size(),
+			fileName:       fmt.Sprintf("Extracting %s", imageRef),
+			downloadStatus: downloadStatus,
+		})
+	}
+
+	symlinks := make([]symlinkEntry, 0)
+	filter := func(hdr *tar.Header) (bool, error) {
+		if hdr.Typeflag == tar.TypeSymlink || hdr.Typeflag == tar.TypeLink {
+			symlinks = append(symlinks, symlinkEntry{name: hdr.Name, target: hdr.Linkname})
+			return false, nil
+		}
+		return true, nil
+	}
+
+	_, err = archive.Apply(ctx,
+		targetDestination, reader,
+		archive.WithNoSameOwner(),
+		archive.WithFilter(filter),
+	)
+	if err != nil {
+		xlog.Error("archive.Apply failed", "targetDestination", targetDestination, "imageRef", imageRef, "error", err.Error())
+		if rmErr := os.RemoveAll(targetDestination); rmErr != nil {
+			xlog.Error("failed to cleanup incomplete extraction", "targetDestination", targetDestination, "error", rmErr.Error())
+		}
+		return err
+	}
+
+	if err := materializeSymlinksWindows(targetDestination, symlinks); err != nil {
+		if rmErr := os.RemoveAll(targetDestination); rmErr != nil {
+			xlog.Error("failed to cleanup incomplete extraction", "targetDestination", targetDestination, "error", rmErr.Error())
+		}
+		return err
+	}
+
+	return nil
+}
+
+type symlinkEntry struct {
+	name   string
+	target string
+}
+
+// materializeSymlinksWindows copies symlink targets into real files/dirs.
+func materializeSymlinksWindows(dest string, links []symlinkEntry) error {
+	dest = filepath.Clean(dest)
+	prefix := dest + string(os.PathSeparator)
+
+	for _, link := range links {
+		srcRel := filepath.Clean(filepath.Join(filepath.Dir(link.name), link.target))
+		srcFull := filepath.Join(dest, srcRel)
+		if srcFull != dest && !strings.HasPrefix(srcFull, prefix) {
+			xlog.Warn("symlink target escapes destination, skipping", "link", link.name, "target", link.target)
+			continue
+		}
+
+		linkPath := filepath.Join(dest, link.name)
+
+		srcInfo, err := os.Stat(srcFull)
+		if err != nil {
+			xlog.Warn("symlink target missing, skipping", "link", link.name, "target", link.target, "error", err)
+			continue
+		}
+
+		if srcInfo.IsDir() {
+			if err := os.MkdirAll(linkPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory for symlink %s -> %s: %v", link.name, link.target, err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
+			return fmt.Errorf("failed to create parent for symlink %s: %v", link.name, err)
+		}
+
+		srcFile, err := os.Open(srcFull)
+		if err != nil {
+			return fmt.Errorf("failed to open symlink source %s: %v", srcFull, err)
+		}
+		data, err := io.ReadAll(srcFile)
+		srcFile.Close()
+		if err != nil {
+			return fmt.Errorf("failed to read symlink source %s: %v", srcFull, err)
+		}
+
+		if err := os.WriteFile(linkPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write materialized symlink %s: %v", linkPath, err)
+		}
+	}
+
+	return nil
 }
 
 // GetOCIImageUncompressedSize returns the total uncompressed size of an image
