@@ -164,7 +164,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
+		xlog.Info("backend install: downloading", "name", name, "uri", config.URI, "backendPath", backendPath, "mirrors", config.Mirrors)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
 			success := false
 			// Try to download from mirrors
@@ -175,26 +175,27 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 					return ctx.Err()
 				default:
 				}
+				xlog.Info("backend install: trying mirror", "name", name, "mirror", mirror)
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
-					xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
+					xlog.Info("backend install: mirror download ok", "name", name, "mirror", mirror, "backendPath", backendPath)
 					break
 				}
 			}
 
 			if !success {
-				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", backendPath, "error", err)
+				xlog.Error("backend install: failed download", "name", name, "uri", config.URI, "backendPath", backendPath, "error", err)
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 			}
 		} else {
-			xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
+			xlog.Info("backend install: download ok", "name", name, "uri", config.URI, "backendPath", backendPath)
 		}
 	}
 
 	// sanity check - check if runfile is present
 	runFile := filepath.Join(backendPath, runFile)
 	if _, err := os.Stat(runFile); os.IsNotExist(err) {
-		xlog.Error("Run file not found", "runFile", runFile)
+		xlog.Error("backend install: run file not found", "name", name, "runFile", runFile)
 		return fmt.Errorf("not a valid backend: run file not found %q", runFile)
 	}
 

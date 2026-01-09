@@ -86,6 +86,11 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 			return err
 		}
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
+		g.UpdateStatus(op.ID, &GalleryOpStatus{
+			Error:              err,
+			Processed:          true,
+			GalleryElementName: op.GalleryElementName,
+		})
 		if !op.Delete {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
 			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
