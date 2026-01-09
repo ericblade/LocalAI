@@ -471,6 +471,9 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	default:
 	}
 
+	// Close the file before renaming (critical on Windows)
+	outFile.Close()
+
 	err = os.Rename(tmpFilePath, filePath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temporary file %s -> %s: %v", tmpFilePath, filePath, err)

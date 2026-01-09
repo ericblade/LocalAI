@@ -1,0 +1,10 @@
+# air.windows.toml - Windows-specific configuration for air
+[build]
+cmd = "go build -o local-ai.exe ./cmd/local-ai"
+bin = "local-ai.exe"
+args_bin = [ "--debug" ]
+include_dir = ["cmd", "core", "pkg", "configuration"]
+include_ext = ["go", "html", "yaml", "toml", "json", "txt", "md"]
+exclude_dir = ["pkg/grpc/proto", "backend/cpp/llama-cpp/llama.cpp", "backend/cpp/llama-cpp/build", "docs", "examples", "gallery", "aio"]
+exclude_file = ["VP_VULKANINFO_.*\\.json"]
+delay = 1000
