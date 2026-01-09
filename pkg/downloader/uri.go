@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -317,10 +318,31 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		url = strings.TrimPrefix(url, OCIPrefix)
 		img, err := oci.GetImage(url, "", nil, nil)
 		if err != nil {
-			return fmt.Errorf("failed to get image %q: %v", url, err)
+			xlog.Error("downloader: OCI image fetch failed", "ref", url, "error", err.Error())
+			
+			// On Windows, if we got a platform mismatch error, try linux/{arch} as fallback
+			if runtime.GOOS == "windows" && strings.Contains(err.Error(), "no child with platform windows") {
+				linuxPlatform := fmt.Sprintf("linux/%s", runtime.GOARCH)
+				xlog.Info("downloader: Windows platform not available; retrying with "+linuxPlatform, "ref", url)
+				img, err = oci.GetImage(url, linuxPlatform, nil, nil)
+				if err != nil {
+					xlog.Error("downloader: "+linuxPlatform+" fallback also failed", "ref", url, "error", err.Error())
+					return fmt.Errorf("failed to get image %q for either windows/%s or %s: %v", url, runtime.GOARCH, linuxPlatform, err)
+				}
+				xlog.Info("downloader: successfully fetched "+linuxPlatform+" image as fallback", "ref", url)
+			} else {
+				return fmt.Errorf("failed to get image %q: %v", url, err)
+			}
 		}
 
-		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+		xlog.Info("downloader: extracting OCI image", "ref", url, "dest", filePath)
+		extractErr := oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+		if extractErr != nil {
+			xlog.Error("downloader: OCI extraction failed", "ref", url, "dest", filePath, "error", extractErr.Error())
+		} else {
+			xlog.Info("downloader: OCI extraction succeeded", "ref", url, "dest", filePath)
+		}
+		return extractErr
 	}
 
 	// Check for cancellation before starting
