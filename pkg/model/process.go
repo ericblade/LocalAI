@@ -18,6 +18,8 @@ import (
 )
 
 var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
+var logSubprocessOutput bool = os.Getenv("LOCALAI_LOG_SUBPROCESS_OUTPUT") == "true"
+var logSubprocessToConsole bool = os.Getenv("LOCALAI_LOG_SUBPROCESS_TO_CONSOLE") == "true"
 
 // findBashOnWindows locates a bash shell on Windows via PATH.
 // Returns the resolved path to "bash" or "bash" if not found.
@@ -157,6 +159,13 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			processArgs = append([]string{converted}, args...)
 		}
 		xlog.Debug("Windows shell script launch", "shellKind", shellKind, "shellPath", processName, "scriptPath", grpcProcess, "convertedPath", converted, "bindAddr", bindAddr, "processArgs", processArgs)
+		// Persist shell kind by address for downstream path conversions
+		ml.mu.Lock()
+		if ml.shellKindByAddress == nil {
+			ml.shellKindByAddress = make(map[string]string)
+		}
+		ml.shellKindByAddress[serverAddress] = shellKind
+		ml.mu.Unlock()
 	}
 
 	grpcControlProcess := process.New(
@@ -187,24 +196,66 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	})
 
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
-		if err != nil {
-			xlog.Debug("Could not tail stderr")
-		}
-		for line := range t.Lines {
-			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
-		}
-	}()
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
-		if err != nil {
-			xlog.Debug("Could not tail stdout")
-		}
-		for line := range t.Lines {
-			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
-		}
-	}()
+	if logSubprocessOutput {
+		// By default, write subprocess output to files to avoid terminal mode changes
+		// Enable LOCALAI_LOG_SUBPROCESS_TO_CONSOLE=true to print to console instead
+		go func() {
+			t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
+			if err != nil {
+				xlog.Debug("Could not tail stderr")
+				return
+			}
+			if logSubprocessToConsole {
+				for line := range t.Lines {
+					xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+				}
+			} else {
+				// Append to file in the process state dir
+				fpath := filepath.Join(grpcControlProcess.StateDir(), "grpc-subprocess-stderr.log")
+				f, ferr := os.OpenFile(fpath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+				if ferr != nil {
+					xlog.Debug("Could not open stderr log file", "path", fpath, "error", ferr)
+					return
+				}
+				defer f.Close()
+				for line := range t.Lines {
+					if runtime.GOOS == "windows" {
+						f.WriteString(line.Text + "\r\n")
+					} else {
+						f.WriteString(line.Text + "\n")
+					}
+				}
+			}
+		}()
+		go func() {
+			t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
+			if err != nil {
+				xlog.Debug("Could not tail stdout")
+				return
+			}
+			if logSubprocessToConsole {
+				for line := range t.Lines {
+					xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+				}
+			} else {
+				// Append to file in the process state dir
+				fpath := filepath.Join(grpcControlProcess.StateDir(), "grpc-subprocess-stdout.log")
+				f, ferr := os.OpenFile(fpath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+				if ferr != nil {
+					xlog.Debug("Could not open stdout log file", "path", fpath, "error", ferr)
+					return
+				}
+				defer f.Close()
+				for line := range t.Lines {
+					if runtime.GOOS == "windows" {
+						f.WriteString(line.Text + "\r\n")
+					} else {
+						f.WriteString(line.Text + "\n")
+					}
+				}
+			}
+		}()
+	}
 
 	return grpcControlProcess, nil
 }

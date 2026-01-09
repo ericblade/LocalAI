@@ -133,7 +133,68 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		options.ModelFile = modelFile
 		options.ModelPath = ml.ModelPath
 
-		xlog.Debug("GRPC: Loading model with options", "options", options)
+		// Convert file paths in options based on shell kind used for this backend
+		ml.mu.Lock()
+		shellKind := ml.shellKindByAddress[client.address]
+		ml.mu.Unlock()
+
+		convertPath := func(p string) string {
+			if p == "" {
+				return p
+			}
+			// Normalize separators
+			pp := strings.ReplaceAll(p, "\\", "/")
+			if strings.HasPrefix(pp, "/mnt/") {
+				// /mnt/<drive>/... -> Windows path when not WSL
+				if shellKind != "wsl-bash" {
+					parts := strings.SplitN(pp[len("/mnt/"):], "/", 2)
+					if len(parts) == 2 {
+						drive := strings.ToUpper(parts[0])
+						return drive + ":\\" + strings.ReplaceAll(parts[1], "/", "\\")
+					}
+				}
+				return pp
+			}
+			// /<drive>/... (msys) -> Windows path when not WSL
+			if len(pp) > 2 && pp[0] == '/' && pp[1] >= 'a' && pp[1] <= 'z' && pp[2] == '/' {
+				if shellKind != "wsl-bash" {
+					drive := strings.ToUpper(string(pp[1]))
+					rest := pp[3:]
+					return drive + ":\\" + strings.ReplaceAll(rest, "/", "\\")
+				}
+				// If WSL, convert to /mnt/<drive>/...
+				drive := string(pp[1])
+				rest := pp[3:]
+				return "/mnt/" + drive + "/" + rest
+			}
+			// Windows path -> /mnt when WSL
+			if len(pp) > 2 && pp[1] == ':' {
+				if shellKind == "wsl-bash" {
+					drive := strings.ToLower(string(pp[0]))
+					rest := strings.ReplaceAll(pp[2:], "\\", "/")
+					return "/mnt/" + drive + rest
+				}
+				// otherwise keep Windows path
+				return strings.ReplaceAll(p, "/", "\\")
+			}
+			return p
+		}
+
+		options.ModelPath = convertPath(options.ModelPath)
+		options.ModelFile = convertPath(options.ModelFile)
+
+		// Convert any path-like values in the generic Options list (e.g., voices_dir)
+		for i := range options.Options {
+			opt := options.Options[i]
+			if strings.HasPrefix(opt, "voices_dir:") {
+				val := strings.TrimPrefix(opt, "voices_dir:")
+				options.Options[i] = "voices_dir:" + convertPath(val)
+			}
+		}
+
+		if os.Getenv("LOCALAI_DEBUG_GRPC_OPTIONS") != "" {
+			xlog.Debug("GRPC: Loading model with options", "options", options)
+		}
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {

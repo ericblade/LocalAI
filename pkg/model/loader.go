@@ -28,6 +28,7 @@ type ModelLoader struct {
 	externalBackends         map[string]string
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
+	shellKindByAddress       map[string]string // address -> shell kind (e.g., "wsl-bash", "bash")
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -40,9 +41,25 @@ func NewModelLoader(system *system.SystemState) *ModelLoader {
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
 		lruEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		shellKindByAddress:       make(map[string]string),
 	}
 
 	return nml
+}
+
+// GetShellKindForModel returns the shell kind (e.g., "wsl-bash" or "bash") used to launch the backend for a given model ID.
+// Returns empty string if unknown.
+func (ml *ModelLoader) GetShellKindForModel(id string) string {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	m, ok := ml.models[id]
+	if !ok || m == nil {
+		return ""
+	}
+	if ml.shellKindByAddress == nil {
+		return ""
+	}
+	return ml.shellKindByAddress[m.address]
 }
 
 // GetLoadingCount returns the number of models currently being loaded

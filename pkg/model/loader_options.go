@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"os"
+	"strconv"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
@@ -90,8 +92,19 @@ func NewOptions(opts ...Option) *Options {
 	o := &Options{
 		gRPCOptions:       &pb.ModelOptions{},
 		context:           context.Background(),
-		grpcAttempts:      20,
+		grpcAttempts:      60,
 		grpcAttemptsDelay: 2,
+	}
+	// Allow environment overrides for startup wait
+	if v := os.Getenv("LOCALAI_GRPC_STARTUP_ATTEMPTS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			o.grpcAttempts = n
+		}
+	}
+	if v := os.Getenv("LOCALAI_GRPC_STARTUP_DELAY_SEC"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			o.grpcAttemptsDelay = n
+		}
 	}
 	for _, opt := range opts {
 		opt(o)

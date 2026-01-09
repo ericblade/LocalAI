@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 
@@ -39,6 +40,32 @@ func ModelTTS(
 	fileName := utils.GenerateUniqueFileName(audioDir, "tts", ".wav")
 	filePath := filepath.Join(audioDir, fileName)
 
+	// Convert destination path for the shell kind used by this model
+	// Identify the modelID used during load (same logic as ModelOptions)
+	modelID := modelConfig.Name
+	if modelID == "" {
+		modelID = modelConfig.Model
+	}
+	shellKind := loader.GetShellKindForModel(modelID)
+	convertDst := func(p string) string {
+		if p == "" {
+			return p
+		}
+		if shellKind == "wsl-bash" {
+			// Convert Windows path (e.g., G:\foo\bar.wav) to /mnt/g/foo/bar.wav for WSL
+			// Normalize separators first
+			pp := filepath.ToSlash(p)
+			// Expect pattern <Drive>:/... after ToSlash becomes e.g., G:/...
+			if len(pp) > 2 && pp[1] == ':' {
+				drive := string(pp[0])
+				rest := pp[2:]
+				return "/mnt/" + strings.ToLower(drive) + rest
+			}
+			return pp
+		}
+		return p
+	}
+
 	// We join the model name to the model path here. This seems to only be done for TTS and is HIGHLY suspect.
 	// This should be addressed in a follow up PR soon.
 	// Copying it over nearly verbatim, as TTS backends are not functional without this.
@@ -60,7 +87,7 @@ func ModelTTS(
 		Text:     text,
 		Model:    modelPath,
 		Voice:    voice,
-		Dst:      filePath,
+		  Dst:      convertDst(filePath),
 		Language: &language,
 	})
 	if err != nil {
