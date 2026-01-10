@@ -379,6 +379,32 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             print(f"Options: {self.options}", file=sys.stderr)
 
+            # Configure PyTorch CPU threading from request.Threads if provided
+            try:
+                if hasattr(request, 'Threads') and request.Threads > 0:
+                    torch.set_num_threads(int(request.Threads))
+                    # A reasonable interop threads default (half of compute threads, at least 1)
+                    interop = max(1, int(request.Threads) // 2)
+                    if hasattr(torch, 'set_num_interop_threads'):
+                        torch.set_num_interop_threads(interop)
+                    print(
+                        f"Torch threading: num_threads={torch.get_num_threads()} interop_threads={interop}",
+                        file=sys.stderr,
+                    )
+            except Exception as te:
+                print(f"Warning: unable to set torch threads: {te}", file=sys.stderr)
+
+            # TODO: Consider enabling fp16/bf16 on CPU only when supported by CPU features.
+            # For x86, require AVX512FP16 (fp16 compute) or AVX512BF16 (bf16);
+            # for arm64, require half-precision features (e.g., ASIMDHP/FPHP).
+            # Wire detection from the Go runtime (x/sys/cpu) or pass via env to this backend.
+            # Until then, force fp32 on CPU to avoid hangs or unsupported ops.
+            # Force CPU-safe dtype when CUDA is not requested/available
+            # Ensures we don't attempt fp16 on CPU which can hang or be unsupported
+            if not request.CUDA:
+                torchType = torch.float32
+                variant = None
+
             local = False
             modelFile = request.Model
 
