@@ -92,7 +92,7 @@ func NewOptions(opts ...Option) *Options {
 	o := &Options{
 		gRPCOptions:       &pb.ModelOptions{},
 		context:           context.Background(),
-		grpcAttempts:      60,
+		grpcAttempts:      120,
 		grpcAttemptsDelay: 2,
 	}
 	// Allow environment overrides for startup wait
