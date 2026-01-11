@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,7 +31,40 @@ func AudioToWav(src, dst string) error {
 		f.Close()
 
 		if dec.BitDepth == 16 && dec.NumChans == 1 && dec.SampleRate == 16000 {
-			os.Rename(src, dst)
+			// File is already in correct format, try to rename first
+			err := os.Rename(src, dst)
+			if err == nil {
+				// Rename succeeded
+				return nil
+			}
+
+			// Rename failed, log the error and try copy as fallback
+			copyErr := func() error {
+				srcFile, err := os.Open(src)
+				if err != nil {
+					return fmt.Errorf("copy failed: open source: %w", err)
+				}
+				defer srcFile.Close()
+
+				dstFile, err := os.Create(dst)
+				if err != nil {
+					return fmt.Errorf("copy failed: create destination: %w", err)
+				}
+				defer dstFile.Close()
+
+				_, err = io.Copy(dstFile, srcFile)
+				if err != nil {
+					return fmt.Errorf("copy failed: %w", err)
+				}
+
+				// Copy succeeded, try to delete the source (but don't fail if we can't since it's in a temp dir)
+				os.Remove(src) // Ignore error - temp dir cleanup will handle it
+				return nil
+			}()
+
+			if copyErr != nil {
+				return fmt.Errorf("rename failed (%w) and fallback copy failed: %w", err, copyErr)
+			}
 			return nil
 		}
 	}
