@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 
-	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
@@ -17,10 +16,7 @@ type LibFuncs struct {
 }
 
 func main() {
-	gosd, err := purego.Dlopen("./libgosd.so", purego.RTLD_NOW|purego.RTLD_GLOBAL)
-	if err != nil {
-		panic(err)
-	}
+	gosd := loadGosdLib()
 
 	libFuncs := []LibFuncs{
 		{&LoadModel, "load_model"},

@@ -452,6 +452,7 @@ static void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
     fflush(stderr);
 }
 
+GOSD_EXPORT
 int load_model(const char *model, char *model_path, char* options[], int threads, int diff) {
     fprintf (stderr, "Loading model: %p=%s\n", model, model);
 
@@ -762,28 +763,34 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     return 0;
 }
 
+GOSD_EXPORT
 void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled) {
     params->enabled = enabled;
 }
 
+GOSD_EXPORT
 void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_x, int tile_size_y) {
     params->tile_size_x = tile_size_x;
     params->tile_size_y = tile_size_y;
 }
 
+GOSD_EXPORT
 void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_x, float rel_size_y) {
     params->rel_size_x = rel_size_x;
     params->rel_size_y = rel_size_y;
 }
 
+GOSD_EXPORT
 void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap) {
     params->target_overlap = target_overlap;
 }
 
+GOSD_EXPORT
 sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t *params) {
     return &params->vae_tiling_params;
 }
 
+GOSD_EXPORT
 sd_img_gen_params_t* sd_img_gen_params_new(void) {
     sd_img_gen_params_t *params = (sd_img_gen_params_t *)std::malloc(sizeof(sd_img_gen_params_t));
     sd_img_gen_params_init(params);
@@ -797,6 +804,7 @@ sd_img_gen_params_t* sd_img_gen_params_new(void) {
 static std::string cleaned_prompt_storage;
 static std::string cleaned_negative_prompt_storage;
 
+GOSD_EXPORT
 void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prompt, const char *negative_prompt) {
     // Clear previous LoRA data
     lora_vec.clear();
@@ -849,15 +857,18 @@ void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prom
     }
 }
 
+GOSD_EXPORT
 void sd_img_gen_params_set_dimensions(sd_img_gen_params_t *params, int width, int height) {
     params->width = width;
     params->height = height;
 }
 
+GOSD_EXPORT
 void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
     params->seed = seed;
 }
 
+GOSD_EXPORT
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
     sd_image_t* results;

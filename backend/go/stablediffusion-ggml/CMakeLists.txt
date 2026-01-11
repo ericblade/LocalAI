@@ -11,6 +11,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LE
     target_link_libraries(gosd PRIVATE stdc++fs)
 endif()
 
+# Windows security warnings suppression
+if(MSVC)
+    target_compile_definitions(gosd PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 target_include_directories(gosd PUBLIC
     stable-diffusion.cpp
     stable-diffusion.cpp/thirdparty
