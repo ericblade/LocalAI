@@ -164,8 +164,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		xlog.Info("backend install: downloading", "name", name, "uri", config.URI, "backendPath", backendPath, "mirrors", config.Mirrors)
-		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
+		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
+		downloadErr := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus)
+		xlog.Info("backend install: primary download completed", "name", name, "uri", config.URI, "downloadErr", downloadErr)
+		if downloadErr != nil {
 			success := false
 			// Try to download from mirrors
 			for _, mirror := range config.Mirrors {
@@ -184,11 +186,11 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			if !success {
-				xlog.Error("backend install: failed download", "name", name, "uri", config.URI, "backendPath", backendPath, "error", err)
-				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
+				xlog.Error("backend install: failed download", "name", name, "uri", config.URI, "backendPath", backendPath, "error", downloadErr)
+				return fmt.Errorf("failed to download backend %q: %v", config.URI, downloadErr)
 			}
 		} else {
-			xlog.Info("backend install: download ok", "name", name, "uri", config.URI, "backendPath", backendPath)
+			xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
 		}
 	}
 
