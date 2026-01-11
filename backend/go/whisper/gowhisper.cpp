@@ -38,6 +38,7 @@ static void ggml_log_cb(enum ggml_log_level level, const char *log,
   fflush(stderr);
 }
 
+GOWHISPER_EXPORT
 int load_model(const char *const model_path) {
   whisper_log_set(ggml_log_cb, nullptr);
   ggml_backend_load_all();
@@ -53,6 +54,7 @@ int load_model(const char *const model_path) {
   return 0;
 }
 
+GOWHISPER_EXPORT
 int load_model_vad(const char *const model_path) {
   whisper_log_set(ggml_log_cb, nullptr);
   ggml_backend_load_all();
@@ -72,6 +74,7 @@ int load_model_vad(const char *const model_path) {
   return 0;
 }
 
+GOWHISPER_EXPORT
 int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
         size_t *segs_out_len) {
   if (!whisper_vad_detect_speech(vctx, pcmf32, pcmf32_len)) {
@@ -106,6 +109,7 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
   return 0;
 }
 
+GOWHISPER_EXPORT
 int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
                float pcmf32[], size_t pcmf32_len, size_t *segs_out_len, char *prompt) {
   whisper_full_params wparams =
@@ -137,20 +141,26 @@ int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
   return 0;
 }
 
+GOWHISPER_EXPORT
 const char *get_segment_text(int i) {
   return whisper_full_get_segment_text(ctx, i);
 }
 
+GOWHISPER_EXPORT
 int64_t get_segment_t0(int i) { return whisper_full_get_segment_t0(ctx, i); }
 
+GOWHISPER_EXPORT
 int64_t get_segment_t1(int i) { return whisper_full_get_segment_t1(ctx, i); }
 
+GOWHISPER_EXPORT
 int n_tokens(int i) { return whisper_full_n_tokens(ctx, i); }
 
+GOWHISPER_EXPORT
 int32_t get_token_id(int i, int j) {
   return whisper_full_get_token_id(ctx, i, j);
 }
 
+GOWHISPER_EXPORT
 bool get_segment_speaker_turn_next(int i) {
   return whisper_full_get_segment_speaker_turn_next(ctx, i);
 }

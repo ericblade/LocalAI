@@ -3,7 +3,6 @@ package main
 // Note: this is started internally by LocalAI and a server is allocated for each model
 import (
 	"flag"
-	"os"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -19,16 +18,7 @@ type LibFuncs struct {
 }
 
 func main() {
-	// Get library name from environment variable, default to fallback
-	libName := os.Getenv("WHISPER_LIBRARY")
-	if libName == "" {
-		libName = "./libgowhisper-fallback.so"
-	}
-
-	gosd, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-	if err != nil {
-		panic(err)
-	}
+	gosd := loadWhisperLib()
 
 	libFuncs := []LibFuncs{
 		{&CppLoadModel, "load_model"},
