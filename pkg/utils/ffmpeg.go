@@ -5,16 +5,74 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/go-audio/wav"
 )
 
+// windowsPathToWSL converts a Windows path to WSL format using wslpath
+func windowsPathToWSL(winPath string) string {
+	// Get absolute path
+	absPath, err := filepath.Abs(winPath)
+	if err != nil {
+		return winPath // fallback to original
+	}
+
+	// Use wsl wslpath for proper conversion
+	cmd := exec.Command("wsl.exe", "wslpath", absPath)
+	out, err := cmd.Output()
+	if err != nil {
+		// Fallback to manual conversion if wslpath fails
+		absPath = strings.ReplaceAll(absPath, "\\", "/")
+		if len(absPath) >= 2 && absPath[1] == ':' {
+			drive := strings.ToLower(string(absPath[0]))
+			rest := absPath[2:]
+			return "/mnt/" + drive + rest
+		}
+		return absPath
+	}
+
+	// wslpath output includes newline, trim it
+	return strings.TrimSpace(string(out))
+}
+
 func ffmpegCommand(args []string) (string, error) {
-	cmd := exec.Command("ffmpeg", args...) // Constrain this to ffmpeg to permit security scanner to see that the command is safe.
-	cmd.Env = []string{}
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+	// Try native ffmpeg first
+	_, err := exec.LookPath("ffmpeg")
+	if err == nil {
+		cmd := exec.Command("ffmpeg", args...)
+		cmd.Env = []string{}
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+
+	// On Windows, fall back to WSL ffmpeg if native not found
+	if runtime.GOOS == "windows" {
+		if _, wslErr := exec.LookPath("wsl.exe"); wslErr == nil {
+			// Convert Windows paths in args to WSL format
+			wslArgs := make([]string, len(args))
+			for i, arg := range args {
+				// If arg looks like a file path (contains : or \), convert it
+				if strings.Contains(arg, ":") || strings.Contains(arg, "\\") {
+					wslArgs[i] = windowsPathToWSL(arg)
+				} else {
+					wslArgs[i] = arg
+				}
+			}
+
+			// Run ffmpeg via WSL
+			wslCmdArgs := append([]string{"ffmpeg"}, wslArgs...)
+			cmd := exec.Command("wsl.exe", wslCmdArgs...)
+			cmd.Env = []string{}
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		}
+	}
+
+	// Neither native nor WSL ffmpeg available
+	return "", fmt.Errorf("ffmpeg not found in PATH (install ffmpeg or enable WSL with ffmpeg)")
 }
 
 // AudioToWav converts audio to wav for transcribe.
