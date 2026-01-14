@@ -248,8 +248,18 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		configMap["name"] = name
 
 		if configOverrides != nil {
-			if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-				return nil, err
+			// TODO: There may be issues with this fix here, the RWKV models refused to install due to type conflicts, so I've changed
+			// the merge code to try to fix that, but there may be unexpected drawbacks that I am unfamiliar with.
+			// Original code merge code:
+			// if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+			// 	return nil, err
+			// }
+			// Manually merge overrides to avoid type conflicts
+			// mergo.Merge can panic when override types don't match base config types
+			// (e.g., reflect.Value.MapIndex: value of type interface {} is not assignable to type string)
+			// Simple shallow merge instead:
+			for key, value := range configOverrides {
+				configMap[key] = value
 			}
 		}
 
