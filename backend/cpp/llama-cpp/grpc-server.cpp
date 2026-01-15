@@ -2233,7 +2233,7 @@ public:
                         logprobs_arr.push_back(json::object());
                     }
                 }
-                reply->set_message(arr);
+                reply->set_message(arr.dump());
 
                 // Set logprobs if any result has them
                 if (has_logprobs) {
