@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 
+	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
