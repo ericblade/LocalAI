@@ -1,4 +1,4 @@
-# Building Whisper.cpp with Vulkan on Windows
+## Building Whisper.cpp with Vulkan on Windows
 
 This guide explains how to build the Whisper backend with Vulkan GPU acceleration on Windows.
 
@@ -72,9 +72,11 @@ This will:
 - Compile GGML base and CPU backends
 - Generate Vulkan shaders (this takes several minutes)
 - Compile whisper.cpp with Vulkan support
-- Output: `g:\b\whisper\Release\gowhisper.dll` (~40-50MB with Vulkan shaders embedded)
+- Output binaries to: `g:\b\whisper\bin\Release\` directory
 
 **Build time**: ~10-15 minutes (mostly shader compilation). Vulkan shader generation runs in parallel with GGML compilation.
+
+**Note**: CMake outputs binaries to `bin\Release\` not `Release\`. The main DLL is `gowhisper.dll` (~16KB wrapper) which depends on `whisper.dll` (1.3MB) and `ggml-vulkan.dll` (~50MB with Vulkan shaders embedded).
 
 ### Step 5: Build the Go Wrapper
 
@@ -82,7 +84,7 @@ Still in the same VS Dev Shell (environment is already configured):
 
 ```powershell
 cd g:\LocalAI\backend\go\whisper
-$env:WHISPER_LIBRARY="g:\b\whisper\Release\gowhisper.dll"
+$env:WHISPER_LIBRARY="g:\b\whisper\bin\Release\gowhisper.dll"
 & "z:\tools\go\bin\go.exe" build -o whisper.exe ./
 ```
 
@@ -98,7 +100,7 @@ This will:
 When running the Whisper service, set the library path to the Vulkan DLL:
 
 ```bash
-$env:WHISPER_LIBRARY="g:\b\whisper\Release\gowhisper.dll"
+$env:WHISPER_LIBRARY="g:\b\whisper\bin\Release\gowhisper.dll"
 .\whisper.exe --addr 0.0.0.0:50052
 ```
 
@@ -106,7 +108,7 @@ Or in a batch file:
 
 ```batch
 @echo off
-set WHISPER_LIBRARY=g:\b\whisper\Release\gowhisper.dll
+set WHISPER_LIBRARY=g:\b\whisper\bin\Release\gowhisper.dll
 .\whisper.exe --addr 0.0.0.0:50052
 ```
 
