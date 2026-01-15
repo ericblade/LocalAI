@@ -1,4 +1,131 @@
 ---
+- name: "qwen3-vl-reranker-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-Reranker-8B
+    **Base Model:** Qwen/Qwen3-VL-Reranker-8B
+
+    **Description:**
+    A high-performance multimodal reranking model for state-of-the-art cross-modal search. It supports 30+ languages and handles text, images, screenshots, videos, and mixed modalities. With 8B parameters and a 32K context length, it refines retrieval results by combining embedding vectors with precise relevance scores. Optimized for efficiency, it supports quantized versions (e.g., Q8_0, Q4_K_M) and is ideal for applications requiring accurate multimodal content matching.
+
+    **Key Features:**
+      - **Multimodal**: Text, images, videos, and mixed content.
+      - **Language Support**: 30+ languages.
+      - **Quantization**: Available in Q8_0 (best quality), Q4_K_M (fast, recommended), and lower-precision options.
+      - **Performance**: Outperforms base models in retrieval tasks (e.g., JinaVDR, ViDoRe v3).
+      - **Use Case**: Enhances search pipelines by refining embeddings with precise relevance scores.
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF) (e.g., `Qwen3-VL-Reranker-8B.Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_reranker import Qwen3VLReranker; model = Qwen3VLReranker(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+    name: Qwen3-VL-Reranker-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+      sha256: f73e62ea68abf741c3e713af823cfb4d2fd2ca35c8b68277b87b4b3d8570b66d
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF/resolve/main/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+      sha256: 15cd9bd4882dae771344f0ac204fce07de91b47c1438ada3861dfc817403c31e
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF/resolve/main/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+- name: "liquidai.lfm2-2.6b-transcript"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/LiquidAI.LFM2-2.6B-Transcript-GGUF
+  description: |
+    This is a large language model (2.6B parameters) designed for text-generation tasks. It is a quantized version of the original model `LiquidAI/LFM2-2.6B-Transcript`, optimized for efficiency while retaining strong performance. The model is built on the foundation of the base model, with additional optimizations for deployment and use cases like transcription or language modeling. It is trained on large-scale text data and supports multiple languages.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LiquidAI.LFM2-2.6B-Transcript.Q4_K_M.gguf
+    name: LiquidAI.LFM2-2.6B-Transcript-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/LiquidAI.LFM2-2.6B-Transcript-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LiquidAI.LFM2-2.6B-Transcript.Q4_K_M.gguf
+      sha256: 301a8467531781909dc7a6263318103a3d8673a375afc4641e358d4174bd15d4
+      uri: https://huggingface.co/DevQuasar/LiquidAI.LFM2-2.6B-Transcript-GGUF/resolve/main/LiquidAI.LFM2-2.6B-Transcript.Q4_K_M.gguf
+- name: "lfm2.5-1.2b-nova-function-calling"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF
+  description: |
+    The **LFM2.5-1.2B-Nova-Function-Calling-GGUF** is a quantized version of the original model, optimized for efficiency with **Unsloth**. It supports text and multimodal tasks, using different quantization levels (e.g., Q2_K, Q3_K, Q4_K, etc.) to balance performance and memory usage. The model is designed for function calling and is faster than the original version, making it suitable for tasks like code generation, reasoning, and multi-modal input processing.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+    name: LFM2.5-1.2B-Nova-Function-Calling-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+      sha256: 5d039ad4195447cf4b6dbee8f7fe11f985c01d671a18153084c869077e431fbf
+      uri: https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF/resolve/main/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+- name: "mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+  description: |
+    The model described in this repository is the **Mistral-Nemo-Instruct-2407-12B** (12 billion parameters), a large language model optimized for instruction tuning and high-level reasoning tasks. It is a **quantized version** of the original model, compressed for efficiency while retaining key capabilities. The model is designed to generate human-like text, perform complex reasoning, and support multi-modal tasks, making it suitable for applications requiring strong language understanding and output.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
+    name: Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
+      sha256: 7337216f6d42b0771344328da00d454c0fdc91743ced0a4f5a1c6632f4f4b063
+      uri: https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF/resolve/main/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -351,6 +478,16 @@
     - filename: voices/streaming_model/en-Davis_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
       sha256: 67561d63bfa2153616e4c02fd967007c182593fc53738a6ad94bf5f84e8832ac
+- &pocket-tts
+  url: "github:mudler/LocalAI/gallery/pocket-tts.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
+  license: mit
+  tags:
+    - text-to-speech
+    - TTS
+  name: "pocket-tts"
+  urls:
+    - https://github.com/kyutai-labs/pocket-tts
 - &qwen3vl
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
@@ -1110,6 +1247,63 @@
       cuda: true
       pipeline_type: QwenImageEditPipeline
       enable_parameters: num_inference_steps,image
+- &ltx2
+  name: "ltx-2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2
+  license: ltx-2-community-license-agreement
+  tags:
+    - diffusers
+    - gpu
+    - image-to-video
+    - video-generation
+    - audio-video
+  description: |
+    **LTX-2** is a DiT-based audio-video foundation model designed to generate synchronized video and audio within a single model. It brings together the core building blocks of modern video generation, with open weights and a focus on practical, local execution.
+
+    **Key Features:**
+    - **Joint Audio-Video Generation**: Generates synchronized video and audio in a single model
+    - **Image-to-Video**: Converts static images into dynamic videos with matching audio
+    - **High Quality**: Produces realistic video with natural motion and synchronized audio
+    - **Open Weights**: Available under the LTX-2 Community License Agreement
+
+    **Model Details:**
+    - **Model Type**: Diffusion-based audio-video foundation model
+    - **Architecture**: DiT (Diffusion Transformer) based
+    - **Developed by**: Lightricks
+    - **Paper**: [LTX-2: Efficient Joint Audio-Visual Foundation Model](https://arxiv.org/abs/2601.03233)
+
+    **Usage Tips:**
+    - Width & height settings must be divisible by 32
+    - Frame count must be divisible by 8 + 1 (e.g., 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+    - Recommended settings: width=768, height=512, num_frames=121, frame_rate=24.0
+    - For best results, use detailed prompts describing motion and scene dynamics
+
+    **Limitations:**
+    - This model is not intended or able to provide factual information
+    - Prompt following is heavily influenced by the prompting-style
+    - When generating audio without speech, the audio may be of lower quality
+
+    **Citation:**
+    ```bibtex
+    @article{hacohen2025ltx2,
+      title={LTX-2: Efficient Joint Audio-Visual Foundation Model},
+      author={HaCohen, Yoav and Brazowski, Benny and Chiprut, Nisan and others},
+      journal={arXiv preprint arXiv:2601.03233},
+      year={2025}
+    }
+    ```
+  overrides:
+    backend: diffusers
+    low_vram: true
+    parameters:
+      model: Lightricks/LTX-2
+    diffusers:
+      cuda: true
+      pipeline_type: LTX2ImageToVideoPipeline
+    options:
+      - torch_dtype:bf16
 - &gptoss
   name: "gpt-oss-20b"
   url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
@@ -6036,6 +6230,7 @@
   tags:
     - embeddings
   overrides:
+    backend: llama-cpp
     embeddings: true
     parameters:
       model: granite-embedding-107m-multilingual-f16.gguf

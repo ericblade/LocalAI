@@ -26,6 +26,7 @@
 #include <grpcpp/health_check_service_interface.h>
 #include <regex>
 #include <atomic>
+#include <mutex>
 #include <signal.h>
 #include <thread>
 
@@ -393,8 +394,9 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // Initialize fit_params options (can be overridden by options)
     // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
     params.fit_params = true;
-    // fit_params_target: target margin per device in bytes (default: 1GB)
-    params.fit_params_target = 1024 * 1024 * 1024;
+    // fit_params_target: target margin per device in bytes (default: 1GB per device)
+    // Initialize as vector with default value for all devices
+    params.fit_params_target = std::vector<size_t>(llama_max_devices(), 1024 * 1024 * 1024);
     // fit_params_min_ctx: minimum context size for fit (default: 4096)
     params.fit_params_min_ctx = 4096;
 
@@ -477,10 +479,28 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         } else if (!strcmp(optname, "fit_params_target") || !strcmp(optname, "fit_target")) {
             if (optval != NULL) {
                 try {
-                    // Value is in MiB, convert to bytes
-                    params.fit_params_target = static_cast<size_t>(std::stoi(optval_str)) * 1024 * 1024;
+                    // Value is in MiB, can be comma-separated list for multiple devices
+                    // Single value is broadcast across all devices
+                    std::string arg_next = optval_str;
+                    const std::regex regex{ R"([,/]+)" };
+                    std::sregex_token_iterator it{ arg_next.begin(), arg_next.end(), regex, -1 };
+                    std::vector<std::string> split_arg{ it, {} };
+                    if (split_arg.size() >= llama_max_devices()) {
+                        // Too many values provided
+                        continue;
+                    }
+                    if (split_arg.size() == 1) {
+                        // Single value: broadcast to all devices
+                        size_t value_mib = std::stoul(split_arg[0]);
+                        std::fill(params.fit_params_target.begin(), params.fit_params_target.end(), value_mib * 1024 * 1024);
+                    } else {
+                        // Multiple values: set per device
+                        for (size_t i = 0; i < split_arg.size() && i < params.fit_params_target.size(); i++) {
+                            params.fit_params_target[i] = std::stoul(split_arg[i]) * 1024 * 1024;
+                        }
+                    }
                 } catch (const std::exception& e) {
-                    // If conversion fails, keep default value (1GB)
+                    // If conversion fails, keep default value (1GB per device)
                 }
             }
         } else if (!strcmp(optname, "fit_params_min_ctx") || !strcmp(optname, "fit_ctx")) {
@@ -695,13 +715,13 @@ private:
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
 
-    grpc::Status Health(ServerContext* /*context*/, const backend::HealthMessage* /*request*/, backend::Reply* reply) {
+    grpc::Status Health(ServerContext* /*context*/, const backend::HealthMessage* /*request*/, backend::Reply* reply) override {
         // Implement Health RPC
         reply->set_message("OK");
         return Status::OK;
     }
 
-    grpc::Status LoadModel(ServerContext* /*context*/, const backend::ModelOptions* request, backend::Result* result) {
+    grpc::Status LoadModel(ServerContext* /*context*/, const backend::ModelOptions* request, backend::Result* result) override {
         // Implement LoadModel RPC
         common_params params;
         params_parse(ctx_server, request, params);
@@ -718,11 +738,72 @@ public:
         LOG_INF("\n");
         LOG_INF("%s\n", common_params_get_system_info(params).c_str());
         LOG_INF("\n");
+        
+        // Capture error messages during model loading
+        struct error_capture {
+            std::string captured_error;
+            std::mutex error_mutex;
+            ggml_log_callback original_callback;
+            void* original_user_data;
+        } error_capture_data;
+        
+        // Get original log callback
+        llama_log_get(&error_capture_data.original_callback, &error_capture_data.original_user_data);
+        
+        // Set custom callback to capture errors
+        llama_log_set([](ggml_log_level level, const char * text, void * user_data) {
+            auto* capture = static_cast<error_capture*>(user_data);
+            
+            // Capture error messages
+            if (level == GGML_LOG_LEVEL_ERROR) {
+                std::lock_guard<std::mutex> lock(capture->error_mutex);
+                // Append error message, removing trailing newlines
+                std::string msg(text);
+                while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r')) {
+                    msg.pop_back();
+                }
+                if (!msg.empty()) {
+                    if (!capture->captured_error.empty()) {
+                        capture->captured_error.append("; ");
+                    }
+                    capture->captured_error.append(msg);
+                }
+            }
+            
+            // Also call original callback to preserve logging
+            if (capture->original_callback) {
+                capture->original_callback(level, text, capture->original_user_data);
+            }
+        }, &error_capture_data);
+        
         // load the model
-        if (!ctx_server.load_model(params)) {
-            result->set_message("Failed loading model");
+        bool load_success = ctx_server.load_model(params);
+        
+        // Restore original log callback
+        llama_log_set(error_capture_data.original_callback, error_capture_data.original_user_data);
+        
+        if (!load_success) {
+            std::string error_msg = "Failed to load model: " + params.model.path;
+            if (!params.mmproj.path.empty()) {
+                error_msg += " (with mmproj: " + params.mmproj.path + ")";
+            }
+            if (params.has_speculative() && !params.speculative.model.path.empty()) {
+                error_msg += " (with draft model: " + params.speculative.model.path + ")";
+            }
+            
+            // Add captured error details if available
+            {
+                std::lock_guard<std::mutex> lock(error_capture_data.error_mutex);
+                if (!error_capture_data.captured_error.empty()) {
+                    error_msg += ". Error: " + error_capture_data.captured_error;
+                } else {
+                    error_msg += ". Model file may not exist or be invalid.";
+                }
+            }
+            
+            result->set_message(error_msg);
             result->set_success(false);
-            return Status::CANCELLED;
+            return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
         }
 
         // Process grammar triggers now that vocab is available
@@ -1501,7 +1582,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
+    grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) override {
          if (params_base.model.path.empty()) {
              return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
          }
@@ -2172,7 +2253,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
+    grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) override {
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -2267,7 +2348,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) {
+    grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) override {
         if (!params_base.embedding || params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This server does not support reranking. Start it with `--reranking` and without `--embedding`");
         }
@@ -2353,7 +2434,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status TokenizeString(ServerContext* /*context*/, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
+    grpc::Status TokenizeString(ServerContext* /*context*/, const backend::PredictOptions* request, backend::TokenizationResponse* response) override {
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -2376,7 +2457,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status GetMetrics(ServerContext* /*context*/, const backend::MetricsRequest* /*request*/, backend::MetricsResponse* response) {
+    grpc::Status GetMetrics(ServerContext* /*context*/, const backend::MetricsRequest* /*request*/, backend::MetricsResponse* response) override {
 
 // request slots data using task queue
         auto rd = ctx_server.get_response_reader();

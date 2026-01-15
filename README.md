@@ -111,6 +111,8 @@
 
 ## 💻 Quickstart
 
+> ⚠️ **Note:** The `install.sh` script is currently experiencing issues due to the heavy changes currently undergoing in LocalAI and may produce broken or misconfigured installations. Please use Docker installation (see below) or manual binary installation until [issue #8032](https://github.com/mudler/LocalAI/issues/8032) is resolved.
+
 Run the installer script:
 
 ```bash
@@ -128,7 +130,7 @@ For more installation options, see [Installer Options](https://localai.io/instal
 
 > Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
 
-Or run with docker:
+### Containers (Docker, podman, ...)
 
 > **💡 Docker Run vs Docker Start**
 > 
@@ -137,13 +139,13 @@ Or run with docker:
 > 
 > If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
 
-### CPU only image:
+#### CPU only image:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-### NVIDIA GPU Images:
+#### NVIDIA GPU Images:
 
 ```bash
 # CUDA 13.0
@@ -160,25 +162,25 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nv
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
-### AMD GPU Images (ROCm):
+#### AMD GPU Images (ROCm):
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
 ```
 
-### Intel GPU Images (oneAPI):
+#### Intel GPU Images (oneAPI):
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel
 ```
 
-### Vulkan GPU Images:
+#### Vulkan GPU Images:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```
 
-### AIO Images (pre-downloaded models):
+#### AIO Images (pre-downloaded models):
 
 ```bash
 # CPU version
@@ -295,6 +297,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **silero-vad** | Voice Activity Detection | CPU |
 | **neutts** | Text-to-speech with voice cloning | CUDA 12/13, ROCm, CPU |
 | **vibevoice** | Real-time TTS with voice cloning | CUDA 12/13, ROCm, Intel, CPU |
+| **pocket-tts** | Lightweight CPU-based TTS | CUDA 12/13, ROCm, Intel, CPU |
 
 ### Image & Video Generation
 | Backend | Description | Acceleration Support |
@@ -316,8 +319,8 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 |-------------------|-------------------|------------------|
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
 | **NVIDIA CUDA 13** | All CUDA-compatible backends | Nvidia hardware |
-| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice | AMD Graphics |
-| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice | Intel Arc, Intel iGPUs |
+| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice, pocket-tts | AMD Graphics |
+| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice, pocket-tts | Intel Arc, Intel iGPUs |
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
 | **NVIDIA Jetson (CUDA 12)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (AGX Orin, etc.) |

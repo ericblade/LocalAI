@@ -6,9 +6,10 @@ toolchain go1.24.5
 
 require (
 	dario.cat/mergo v1.0.2
-	fyne.io/fyne/v2 v2.7.1
+	fyne.io/fyne/v2 v2.7.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.13.0
+	github.com/anthropics/anthropic-sdk-go v1.19.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.30
 	github.com/ebitengine/purego v0.9.1
@@ -19,7 +20,7 @@ require (
 	github.com/gofrs/flock v0.13.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
-	github.com/gpustack/gguf-parser-go v0.22.1
+	github.com/gpustack/gguf-parser-go v0.23.1
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.21.2
@@ -33,11 +34,11 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/mudler/cogito v0.7.2
 	github.com/mudler/edgevpn v0.31.1
-	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
+	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
 	github.com/mudler/xlog v0.0.5
-	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/onsi/ginkgo/v2 v2.27.5
+	github.com/onsi/gomega v1.39.0
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -67,12 +68,16 @@ require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
 
 require (
-	fyne.io/systray v1.11.1-0.20250603113521-ca66a66d8b58 // indirect
+	fyne.io/systray v1.12.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
@@ -319,7 +324,7 @@ require (
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.38.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect

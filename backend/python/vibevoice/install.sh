@@ -17,10 +17,14 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
 fi
 
 # Use python 3.12 for l4t
-if [ "x${BUILD_PROFILE}" == "xl4t12" ] || [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
+if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
   PYTHON_VERSION="3.12"
   PYTHON_PATCH="12"
   PY_STANDALONE_TAG="20251120"
+fi
+
+if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
+    USE_PIP=true
 fi
 
 installRequirements
